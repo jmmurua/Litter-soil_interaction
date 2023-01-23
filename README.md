@@ -6,4 +6,4 @@ This repository contains code and resources from a reciprocal transplant experim
 
 The first aim of this project is to find new insights into the control of decomposition rates by litter quality and soil microbes. The decomposition process is viewed through a holistic perspective instead of focusing on microbial community composition. The main thesis is that the elemental imbalance between plant litter and soil microbial biomass forces microbes to reduce this imbalance through different physiological mechanisms. Failing to overcome this imbalance leads to slow decomposition rates.
 
-Code for the analyses of this first approach are in the file "Murua_and_Gaxiola.R".
+Code for the analyses of this first approach is in the file "Murua_and_Gaxiola.R".
