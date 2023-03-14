@@ -4,9 +4,6 @@
 library(tidyverse)
 library(readxl)
 library(grid)
-library(cowplot)
-library(lme4)
-library(nlme)
 
 
 # ------------------------------------------------------------------------------
@@ -16,7 +13,7 @@ library(nlme)
 # Loading the master data sheet
 Master <- read_excel("Murua_and_Gaxiola_MasterDataSheet.xlsx", 
                      sheet = "Master", 
-                     range = "A21:S385")
+                     range = "A1:S365")
 
 
 # Setting treatments as factors
@@ -31,21 +28,15 @@ Master$ID <- as.character(Master$ID) # Setting ID as character
 Master.m <- Master[Master$Sample_type == "ML", -12:-13]
 
 
-
-jos <- Master.m   # Do I need this???
-names(jos)[c(2, 7)] <- c("spp2", "soil2")
-
-
-
 # Importing litter elemental data measured over time
-Sept.18.h <- read_excel("Chemical_analyses/Resultados Analisis Elemental H SEPT 2018.xls",
+Sept.18.h <- read_excel("Chemical_analyses/Murua_and_Gaxiola_EA_LeafLitter_09-2018.xls",
                         sheet = 1, 
                         range = "B11:J47")
-Jun.19 <- read_excel("Chemical_analyses/Resultados Analisis Elemental Junio 2019.xls",
+Jun.19 <- read_excel("Chemical_analyses/Murua_and_Gaxiola_EA_Soil_06-2019.xls",
                      sheet = 1, 
                      range = "B11:L54")
 Jun.19 <- Jun.19[, c(-5, -8)]
-Ag.19.h <- read_excel("Chemical_analyses/Resultados Analisis Elemental SH AGOSTO 2019.xls",
+Ag.19.h <- read_excel("Chemical_analyses/Murua_and_Gaxiola_EA_SoilandLeafLitter_08-2019.xls",
                       sheet = 1, 
                       range = "B27:J163")
 
@@ -77,7 +68,7 @@ nut[nut$Harvest == 1,] %>% group_by(Litter_spp) %>%
 
 
 # Reading enzyme assays
-Enzymes <- read_excel("Enzyme_assays/Master_Fluo.xlsx", 
+Enzymes <- read_excel("Enzyme_assays/Murua_and_Gaxiola_MasterFluo.xlsx", 
                       sheet = "Master",
                       range = "A1:T1969")
 names(Enzymes)[c(1, 3, 4, 10, 11, 15, 16, 19)] <- 
@@ -97,27 +88,30 @@ Final <-
 
 # Reading processed enzyme activities
 pox<- read.csv("Pox.csv", header = T, sep = ";", dec = ",")
-pox3<- read.csv("Pox3.csv", header = T, sep = ";", dec = ",")  # Do I need this???
+
+
+# Renaming variables
+names(pox)[c(2, 4, 7, 31, 11)] <- c("Litter_spp", "Soil_type", "Harvest", "CN", "days")
 
 
 # Merging the data set without 0s and the processed data
-pox <- merge(pox[, c("ID", "spp", "suelo", "color", 
-                     "rep", "c.n", "t")],
+pox <- merge(pox[, c("ID", "Litter_spp", "Soil_type", "color", 
+                     "Harvest", "CN", "days")],
              Final,                        
              by.x = c("ID", "color"), 
              by.y = c("IDD", "Harvest"))
 
-pox$suelo = factor(pox$suelo, levels = c("Aristotelia", "Nothofagus",  "Lomatia"))
-pox$spp = factor(pox$spp, levels = c("Aristotelia",  "Nothofagus", "Lomatia"))
-pox <- pox[order(pox$rep, pox$spp, pox$suelo),]
+# Setting the order of treatment levels
+pox$Soil_type = factor(pox$Soil_type, levels = c("Aristotelia", "Nothofagus",  "Lomatia"))
+pox$Litter_spp = factor(pox$Litter_spp, levels = c("Aristotelia",  "Nothofagus", "Lomatia"))
+pox <- pox[order(pox$Harvest, pox$Litter_spp, pox$Soil_type),]
 
 
 # Including CN measurements for the last harvest
-nut.g <- nut[nut$Harvest == 6,] %>% group_by(Litter_spp, Soil_type, Harvest) 
-New.cn <- summarise(nut.g, CN = mean(CN))                 
+New.cn <- nut[nut$Harvest == 6,] %>% group_by(Litter_spp, Soil_type, Harvest) %>%
+ summarise(CN = mean(CN))                 
 
-
-pox[pox$rep == 6,]$c.n <- rep(New.cn$CN, each = 3)
+pox[pox$Harvest == 6,]$CN <- rep(New.cn$CN, each = 3)
 
 
 
@@ -169,8 +163,6 @@ Means2 <-
   group_by(nut2, Litter_spp, Soil_type, Harvest) %>%
   summarise(c = mean(c), n = mean(n)) %>%
   filter(Harvest == 1)
-
-Means.2 <- Means2[Means2$rep == 1,]  # Do I actually use this?
 
 Max <- sapply(lapply(nut3, "[[", "c"), 
                function(is){which(is == max (is))}) 
@@ -365,7 +357,7 @@ nut4$grid <- unname(grids[Int])
 
 Lines <- c("Fitted" = "solid", "Expected" = "dashed")
 
-
+pdf("Fig. 2.pdf", height = 6, width = 8)
 ggplot() + geom_point(data = nut4, mapping = aes(x = (1-c)*100, y = n*100)) + 
   geom_line(data = DMr2, mapping = aes(x = carb*100, y = n*100, linetype = "Fitted")) +
   geom_line(data = DMm2, mapping = aes(x = carb*100, y = n*100, linetype = "Fitted")) + 
@@ -401,7 +393,8 @@ ggplot() + geom_point(data = nut4, mapping = aes(x = (1-c)*100, y = n*100)) +
         legend.position = c(0.15, 0.67),
         plot.margin = unit(c(0.1,1,0.2,0.2), "cm")) 
 grid.text(label = "Soil type", 
-          x = unit(0.97, "npc"), y = 0.8, rot = 270, gp=gpar(fontsize=11))
+          x = unit(0.97, "npc"), y = 0.85, rot = 270, gp=gpar(fontsize=11))
+dev.off()
 
 
 # Table with Manzoni's parameters
@@ -513,7 +506,7 @@ DatM$Soil_type <- factor(DatM$Soil_type, levels = c("Aristotelia", "Nothofagus",
  
  
  # Calculating C:N threshold element ratio (TER)
- pox$TERcn <- (pox$BG/pox$NAG)*pox$c.n  
+ pox$TERcn <- (pox$BG/pox$NAG)*pox$CN  
  
  
  # Ranking TER values to identify outliers
@@ -525,19 +518,20 @@ DatM$Soil_type <- factor(DatM$Soil_type, levels = c("Aristotelia", "Nothofagus",
  
  
  #  Plotting threshold element ratio by litter species and soil type
- Int <- interaction(pox$spp, pox$suelo)
+ Int <- interaction(pox$Litter_spp, pox$Soil_type)
  grids <- letters[1:9]
  names(grids) <- unique(Int)
  pox$grid <- unname(grids[Int])
  
  Lines <- c("TER" = "solid", "Litter C:N" = "dashed")
  
+ pdf("Fig. 3.pdf", height = 6, width = 8)
  ggplot(data = pox) + 
-   stat_summary(aes(x = t, y = TERcn), fun.data = "mean_se", geom = "point") +
-   stat_summary(aes(x = t, y = TERcn), fun.data = "mean_se", geom = "errorbar", width = 4) +
-   stat_summary(aes(x = t, y = TERcn, linetype = "TER"), fun.data = "mean_se", geom = "line") + 
-   stat_summary(aes(x = t, y = c.n, group = interaction(spp, suelo), linetype = "Litter C:N"), fun.data = "mean_se", geom = "line", alpha = 0.5) + 
-   facet_grid(suelo~spp) + 
+   stat_summary(aes(x = days, y = TERcn), fun.data = "mean_se", geom = "point") +
+   stat_summary(aes(x = days, y = TERcn), fun.data = "mean_se", geom = "errorbar", width = 4) +
+   stat_summary(aes(x = days, y = TERcn, linetype = "TER"), fun.data = "mean_se", geom = "line") + 
+   stat_summary(aes(x = days, y = CN, group = interaction(Litter_spp, Soil_type), linetype = "Litter C:N"), fun.data = "mean_se", geom = "line", alpha = 0.5) + 
+   facet_grid(Soil_type ~ Litter_spp) + 
    theme_classic() + 
    labs(x = "Time (days)", y = "TER", colour = "Soil type", subtitle = "Litter species") +
    theme(strip.text = element_text(size = 10, face = "italic"),
@@ -551,7 +545,8 @@ DatM$Soil_type <- factor(DatM$Soil_type, levels = c("Aristotelia", "Nothofagus",
    guides(linetype = guide_legend(title = NULL)) 
  
  grid.text(label = "Soil type", 
-           x = unit(0.97, "npc"), y = 0.8, rot = 270, gp=gpar(fontsize=11)) 
+           x = unit(0.97, "npc"), y = 0.85, rot = 270, gp = gpar(fontsize = 11)) 
+ dev.off()
  
  
 # -----------------------------------------------------------------------------
@@ -559,8 +554,6 @@ DatM$Soil_type <- factor(DatM$Soil_type, levels = c("Aristotelia", "Nothofagus",
  
  
 jos<- read.csv("Jos.csv", header = T, sep = ";", dec = ",")
-Table <- read_delim("Table.1.csv", delim = ";") # Do I use this??
-New <- read.table("Datos paper Jose enero 2021.txt", header = TRUE) # Do I use this??
 
 names(jos)[c(2, 3, 4, 5, 6, 9, 10, 12, 14)] <- 
   c("Litter_spp", "spp", "Initial_mass", "Final_mass", "Soil_type", "days", "years", "Harvest", "Remaining_mass")
@@ -580,10 +573,15 @@ cb_palette <- c("#000000", "#E69F00", "#56B4E9")
 
 
 #Remaining mass by litter species. Color is soil type
-#pdf("Fig. S1.pdf", height = 4, width = 10)
-ggplot() +
+panels <- letters[1:3]
+names(panels) <- unique(jos$Litter_spp)
+jos$panel <- unname(panels[jos$Litter_spp])
+
+
+# pdf("Fig. S1.pdf", height = 4, width = 10)
+ggplot(data = jos) +
   stat_summary(fun.data = "mean_se", geom = "errorbar", width = 5, data = jos,
-               linewidth = 0.4, mapping = aes(x = days, y = Remaining_mass*100, group = interaction(Soil_type, Litter_spp))) + 
+               linewidth = 0.4, mapping = aes(x = days, y = Remaining_mass*100, group = interaction(Soil_type, Litter_spp), color = soil)) + 
   stat_summary(fun.data = "mean_se", geom = "line", data = jos, 
                mapping = aes(x = days, y = Remaining_mass*100, group = interaction(Soil_type, Litter_spp), color = soil)) +
   stat_summary(fun.data = "mean_se", geom = "point", size = 2, data = joz, 
@@ -594,11 +592,12 @@ ggplot() +
                mapping = aes(x = days, y = Remaining_mass*100, colour = soil)) +
   facet_grid(~spp) + 
   theme_classic() + 
+  geom_text(x = 30, y = 100, aes(label = panel)) +
   labs(y = "Mass remaining (%)", x = "Time (days)", subtitle =  "Litter species", colour = "Soil type")  +
   theme(legend.text = element_text(face = "italic", size = 8), legend.position = c(0.94, 0.81), 
         legend.title = element_text(size = 8), strip.text = element_text(size = 10, face = "italic"),) +
   scale_colour_manual(values = cb_palette)
-#dev.off()
+# dev.off()
 
 
 # Fitting decay models
@@ -674,14 +673,14 @@ Dat <- merge(Dat, DatM, by = c("Litter_spp", "Soil_type"), sort = FALSE)
 
 
 # Plotting decomposition rate (k) vs initial litter C:N
-#pdf("Fig. 1.pdf", height = 6, width = 8)
+# pdf("Fig. 1.pdf", height = 6, width = 8)
 ggplot(data = Dat, mapping = aes(x = CN, y = k)) + 
   geom_errorbar(aes(ymin = k - SE.k, ymax = k + SE.k, group = interaction(Soil_type, Litter_spp)), width = 1) +
   geom_point(aes(fill = Soil_type, shape = Litter_spp), size = 4) +
   theme_classic() +
   scale_y_continuous(breaks = c(1, 1.5, 2, 2.5)) +
   labs(x = "Litter C:N", y = expression(paste("k  ", (year^-1))), shape = "Litter species", fill = "Soil type") +
-  scale_shape_manual(values=c(21, 24, 22)) +
+  scale_shape_manual(values=c(23, 24, 22)) +
   scale_fill_manual(values = c("white", "black", "gray"), guide = guide_legend(override.aes = list(shape = 21))) +
   theme(axis.text = element_text(size = 15),
         axis.title = element_text(size = 15),
@@ -691,7 +690,185 @@ ggplot(data = Dat, mapping = aes(x = CN, y = k)) +
         legend.position = c(0.9, 0.75),
         panel.background = element_rect(colour = "black", linewidth = 0.7), 
         axis.line = element_line(NULL)) 
-#dev.off()
+# dev.off()
+
+
+# ------------------------------------------------------------------------------
+#                        ENZYMATC ALLOCATION
+
+
+# Joining activities in a single column
+pox2 <- pivot_longer(data = pox, cols = c("BG", "NAG", "AP"), 
+                     names_to = "Enzyme", values_to = "Activity") 
+
+pox2$Litter_spp <- factor(pox2$Litter_spp, levels = c("Aristotelia", "Nothofagus", "Lomatia"))
+pox2$Soil_type <- factor(pox2$Soil_type, levels = c("Aristotelia", "Nothofagus", "Lomatia"))
+
+# Enzyme activity per litter x soil combination
+Int <- interaction(pox2$Litter_spp, pox2$Soil_type)
+grids <- letters[1:9]
+names(grids) <- unique(Int)
+pox2$grid <- unname(grids[Int])
+
+pdf("Fig. S2.pdf", height = 6, width = 8)
+ggplot(data = pox2, mapping = aes(x = days, y = Activity)) + 
+  stat_summary(fun.data = "mean_se", geom = "errorbar", width = 4, aes(colour = Enzyme)) +
+  stat_summary(fun.data = "mean_se", geom = "point", aes(colour = Enzyme)) + 
+  stat_summary(fun.data = "mean_se", geom = "line", aes(colour = Enzyme)) + 
+  labs(x = "Time (days)", 
+       y = "Activity (nmol/h*g litter)", 
+       colour = "Enzyme",
+       subtitle = "Litter species") +
+  scale_color_manual(values = cb_palette) +
+  theme_classic() + 
+  expand_limits( x = 0, y = c(0, 14)) +
+  geom_text(x = 10, y = 5.6*10^6, aes(label = grid)) +
+  theme(legend.position = c(0.9, 0.87),
+        plot.margin = unit(c(0.1,1,0.2,0.2), "cm"),
+        strip.text = element_text(size = 10, 
+                                  face = "italic")) +
+  facet_grid(Soil_type ~ Litter_spp)  
+
+grid.text(label = "Soil type", 
+          x = unit(0.97, "npc"), y = 0.85, rot = 270, gp=gpar(fontsize=11))
+dev.off()
+
+
+# log enzyme activity per litter x soil combination
+pdf("Fig. S3.pdf", height = 6, width = 8)
+ggplot(data = pox2, mapping = aes(x = days, y = log(Activity))) + 
+  stat_summary(fun.data = "mean_se", geom = "errorbar", width = 4, aes(colour = Enzyme)) +
+  stat_summary(fun.data = "mean_se", geom = "point", aes(colour = Enzyme)) + 
+  stat_summary(fun.data = "mean_se", geom = "line", aes(colour = Enzyme)) + 
+  labs(x = "Time (days)", 
+       y = "ln Activity (nmol/h*g litter)", 
+       colour = "Enzyme",
+       subtitle = "Litter species") +
+  scale_color_manual(values = cb_palette) +
+  theme_classic() + 
+  expand_limits( x = 0, y = c(0, 14)) +
+  geom_text(x = 10, y = 15, aes(label = grid)) +
+  theme(legend.position = c(0.9, 0.75),
+        plot.margin = unit(c(0.1,1,0.2,0.2), "cm"),
+        strip.text = element_text(size = 10, 
+                                  face = "italic")) +
+  facet_grid(Soil_type ~ Litter_spp)  
+grid.text(label = "Soil type", 
+          x = unit(0.97, "npc"), y = 0.85, rot = 270, gp=gpar(fontsize=11))
+dev.off()
+
+
+
+# BG/NAG in time by soil
+grids <- letters[1:3]
+names(grids) <- unique(pox$Soil_type)
+pox$grid <- unname(grids[pox$Soil_type])
+
+# pdf("Fig. S4.pdf", height = 4, width = 10)
+ggplot(pox, aes(x = days, y = BG/NAG)) +
+  geom_hline(yintercept = 1, alpha = 0.5, linetype = "dashed") +
+  stat_summary(fun.data = "mean_se", geom = "errorbar", width = 10, aes(color = Litter_spp)) +
+  stat_summary(fun.data = "mean_se", geom = "line", aes(color = Litter_spp)) +
+  stat_summary(fun.data = "mean_se", geom = "point", aes(color = Litter_spp)) +
+  facet_grid(~ Soil_type) + 
+  geom_text(x = 30, y = 9.5, aes(label = grid)) +
+  scale_color_manual(values = cb_palette) +
+  labs(x = "Time (days)", y = "BG:NAG", color = "Litter species", subtitle = "Soil type") +
+  theme_classic() +
+  theme(legend.position = c(0.94, 0.8),
+        strip.text = element_text(size = 10, face = "italic"),
+        legend.text = element_text(size = 10, face = "italic")) 
+# + ylim(c(0, 3.7))
+# dev.off()
+
+
+# Patterns of eznymatic allocation. Panels are soil type
+ggplot(pox, aes(x = NAG/AP, y = BG/NAG)) +
+  geom_point(aes(color = Litter_spp)) + 
+  geom_hline(yintercept = 1, linetype = "dashed", alpha = 0.5) + 
+  geom_vline(xintercept = 1, linetype = "dashed", alpha = 0.5) + 
+  ylim(c(0, 6)) + xlim(0, 15) +
+  facet_grid(~ Soil_type) +
+  scale_color_manual(values = cb_palette) +
+  theme_classic()
+
+
+# Patterns of ezymatic allocation. Panels are litter spp
+ggplot(pox, aes(x = NAG/AP, y = BG/NAG)) +
+  geom_point(aes(color = Soil_type)) + 
+  geom_hline(yintercept = 1, linetype = "dashed", alpha = 0.5) + 
+  geom_vline(xintercept = 1, linetype = "dashed", alpha = 0.5) + 
+  ylim(c(0, 6)) + xlim(0, 15) +
+  facet_grid(~ Litter_spp) +
+  scale_color_manual(values = cb_palette) +
+  theme_classic()
+
+
+# BG:NAG effect size relative to time 0
+pox$BG_NAG <- pox$BG/pox$NAG
+
+BG_NAG_t0 <- 
+pox %>%
+group_by(Litter_spp, Soil_type, Harvest) %>%
+  summarise(BG_NAG_t0 = mean(BG_NAG)) %>%
+  filter(Harvest == 1)
+
+pox3 <- inner_join(pox, BG_NAG_t0[, -3], by = c("Litter_spp", "Soil_type"))
+
+pox3$Enz_CN_change <- (pox3$BG_NAG_t0/pox3$BG_NAG)*100 # Initial over current OR
+pox3$Enz_CN_change <- (pox3$BG_NAG/pox3$BG_NAG_t0)*100 # Current over initial
+
+
+grids <- letters[1:3]
+names(grids) <- unique(pox3$Soil_type)
+pox3$grid <- unname(grids[pox3$Soil_type])
+
+# pdf("Fig. S5.pdf", height = 4, width = 10)
+ggplot(pox3, aes(x = days, y = Enz_CN_change)) +
+  geom_hline(yintercept = 100, alpha = 0.5, linetype = "dashed") +
+  stat_summary(fun.data = "mean_se", geom = "errorbar", width = 10, aes(color = Litter_spp)) +
+  stat_summary(fun.data = "mean_se", geom = "line", aes(color = Litter_spp)) +
+  stat_summary(fun.data = "mean_se", geom = "point", aes(color = Litter_spp)) +
+  facet_grid(~ Soil_type) + 
+  geom_text(x = 30, y = 860, aes(label = grid)) +
+  scale_color_manual(values = cb_palette) +
+  labs(x = "Time (days)", y = "BG:NAG (% of initial BG:NAG)", color = "Litter species", subtitle = "Soil type") +
+  theme_classic() +
+  theme(legend.position = c(0.94, 0.8),
+        strip.text = element_text(size = 10, face = "italic"),
+        legend.text = element_text(size = 10, face = "italic")) 
+ #dev.off()
+
+
+# BG effect size relative to time 0
+BG_t0 <- 
+  pox %>%
+  group_by(Litter_spp, Soil_type, Harvest) %>%
+  summarise(BG_t0 = mean(BG)) %>%
+  filter(Harvest == 1)
+
+pox3 <- inner_join(pox3, BG_t0[, -3], by = c("Litter_spp", "Soil_type"))
+
+pox3$BG_change <- (pox3$BG/pox3$BG_t0)*100
+
+# pdf("Fig. S5,pdf", height = 4, width = 10)
+ggplot(pox3, aes(x = days, y = BG_change)) +
+  geom_hline(yintercept = 100, alpha = 0.5, linetype = "dashed") +
+  stat_summary(fun.data = "mean_se", geom = "errorbar", width = 10, aes(color = Litter_spp)) +
+  stat_summary(fun.data = "mean_se", geom = "line", aes(color = Litter_spp)) +
+  stat_summary(fun.data = "mean_se", geom = "point", aes(color = Litter_spp)) +
+  facet_grid(~ Soil_type) + 
+  geom_text(x = 30, y = 430, aes(label = grid)) +
+  scale_color_manual(values = cb_palette) +
+  labs(x = "Time (days)", y = "BG", color = "Litter species", subtitle = "Soil type") +
+  theme_classic() +
+  theme(legend.position = c(0.1, 0.8),
+        strip.text = element_text(size = 10, face = "italic"),
+        legend.text = element_text(size = 10, face = "italic")) 
+# + ylim(c(0, 3.7))
+# dev.off()
+
+
 
 
 
