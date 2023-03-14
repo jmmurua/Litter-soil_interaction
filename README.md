@@ -1,6 +1,6 @@
 # Litter-soil interaction in terrestrial decomposition
 
-This repository contains code and resources from a reciprocal transplant experiment conducted by Jose Murua and Aurora Gaxiola from April 2018 to March 2019 at Pontificia Universidad Catolica de Chile.
+This repository contains code and resources from a reciprocal transplant experiment conducted by Jose Murúa and Aurora Gaxiola from April 2018 to March 2019 at Pontificia Universidad Católica de Chile.
 
 ## Explaining litter-soil interactions through ecological stoichiometry
 
